@@ -1,0 +1,1871 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Poêle Jolly Mec (API Agua IOT Réelle)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif']
+                    }
+                }
+            }
+        };
+    </script>
+    <style>
+        html, body {
+            background-color: #090d16;
+            color: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .glass-card {
+            background: rgba(15, 23, 42, 0.88);
+            border: 1px solid rgba(148, 163, 184, 0.14);
+            border-radius: 1.25rem;
+            box-shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.75);
+        }
+        .tab-btn-active {
+            background: linear-gradient(135deg, #f97316, #f59e0b);
+            color: #090d16;
+            font-weight: 700;
+        }
+        .tab-btn-idle {
+            background: rgba(15, 23, 42, 0.75);
+            color: #cbd5e1;
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+    </style>
+</head>
+<body class="bg-[#090d16] text-slate-100 antialiased selection:bg-orange-500/30 selection:text-orange-200">
+    <!-- Toast Notification -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2rem)] pointer-events-none"></div>
+
+    <!-- Confirm Modal -->
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full p-6 space-y-4 border border-slate-700/70">
+            <h3 id="confirm-title" class="text-base font-bold text-white">Confirmation</h3>
+            <p id="confirm-message" class="text-sm text-slate-300 leading-relaxed"></p>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="closeConfirmModal(false)" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+                    Annuler
+                </button>
+                <button id="confirm-ok-btn" type="button" onclick="closeConfirmModal(true)" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-slate-950 transition">
+                    Confirmer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8 space-y-6">
+        <!-- Top Header -->
+        <header class="glass-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center gap-3.5">
+                <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center text-slate-950 shadow-lg shadow-orange-500/20 shrink-0">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/>
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h1 class="text-lg sm:text-xl font-extrabold tracking-tight text-white">Jolly Mec · Agua IOT</h1>
+                        <span id="connection-pill" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                            Déconnecté
+                        </span>
+                    </div>
+                    <p id="stove-subtitle" class="text-xs text-slate-400 mt-0.5">
+                        Connectez votre compte Jolly Mec Wi-Fi pour piloter le poêle en direct
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2.5">
+                <span id="eeprom-badge" class="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-900/90 text-slate-300 border border-slate-700/70">
+                    EEPROM : 0 / 20 aujourd'hui
+                </span>
+                <button id="btn-refresh-now" type="button" onclick="manualRefresh()" disabled class="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    <span>Actualiser</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Navigation Tabs -->
+        <nav class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" aria-label="Navigation principale">
+            <button id="tab-control" type="button" onclick="switchTab('control')" class="tab-btn-active py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center">
+                Contrôle &amp; Direct
+            </button>
+            <button id="tab-schedule" type="button" onclick="switchTab('schedule')" class="tab-btn-idle py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center">
+                Plages Horaires
+            </button>
+            <button id="tab-settings" type="button" onclick="switchTab('settings')" class="tab-btn-idle py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center flex items-center justify-center gap-1.5">
+                <span>Paramètres &amp; Alertes</span>
+                <span id="alerts-count-badge" class="hidden px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500 text-white">0</span>
+            </button>
+            <button id="tab-config" type="button" onclick="switchTab('config')" class="tab-btn-idle py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center">
+                API &amp; Connexion
+            </button>
+        </nav>
+
+        <!-- Active Alerts Banner -->
+        <div id="active-alerts-panel" class="hidden glass-card p-4 sm:p-5 border border-rose-500/40 bg-rose-950/25 space-y-3">
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <h2 class="text-sm font-extrabold text-rose-200 uppercase tracking-wider">Alertes Poêle Actives</h2>
+                </div>
+                <button type="button" onclick="acknowledgeAllAlerts()" class="px-3 py-1 rounded-xl text-xs font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/40 transition">
+                    Tout acquitter
+                </button>
+            </div>
+            <div id="active-alerts-list" class="space-y-2"></div>
+        </div>
+
+        <!-- TAB 1: CONTROL -->
+        <section id="panel-control" class="space-y-6">
+            <!-- Not connected notice -->
+            <div id="disconnected-banner" class="glass-card p-5 border border-amber-500/30 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div class="space-y-1">
+                    <p class="text-sm font-bold text-amber-300">Session API Agua IOT non active</p>
+                    <p class="text-xs text-slate-300">Renseignez vos identifiants Jolly Mec Wi-Fi dans l'onglet <strong>API &amp; Connexion</strong> pour lire l'état réel et envoyer des commandes.</p>
+                </div>
+                <button type="button" onclick="switchTab('config')" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 shrink-0 transition">
+                    Configurer la connexion
+                </button>
+            </div>
+
+            <!-- Main Power, Boost & Vacation Card -->
+            <div class="glass-card p-5 sm:p-6 space-y-5">
+                <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-bold text-slate-400">État actuel du poêle</p>
+                        <div class="flex items-center gap-3 mt-1">
+                            <span id="stove-status-text" class="text-2xl sm:text-3xl font-extrabold text-white">--</span>
+                            <span id="stove-last-sync" class="text-xs text-slate-400">En attente de synchronisation</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                        <button id="btn-power-toggle" type="button" onclick="toggleStovePower()" disabled class="w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-gradient-to-r from-orange-500 to-amber-500 text-slate-950 disabled:opacity-40 disabled:pointer-events-none transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v9m6.364-4.364a9 9 0 11-12.728 0"/>
+                            </svg>
+                            <span id="btn-power-label">Allumer le poêle</span>
+                        </button>
+
+                        <button id="btn-boost-toggle" type="button" onclick="activateBoostMode()" disabled class="w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-200 border border-amber-500/40 disabled:opacity-40 disabled:pointer-events-none transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                            </svg>
+                            <span id="btn-boost-label">Boost +2°C &amp; Stop</span>
+                        </button>
+
+                        <button id="btn-vacation-toggle" type="button" onclick="toggleVacationMode()" disabled class="w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 border border-sky-500/40 disabled:opacity-40 disabled:pointer-events-none transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                            <span id="btn-vacation-label">Mode Vacances</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Active Boost Banner -->
+                <div id="boost-active-banner" class="hidden rounded-2xl bg-orange-500/15 border border-orange-400/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="space-y-0.5">
+                        <p class="text-xs font-extrabold uppercase tracking-wider text-orange-300">Mode Boost actif (+2,0 °C)</p>
+                        <p id="boost-status-detail" class="text-xs text-slate-200"></p>
+                    </div>
+                    <button type="button" onclick="cancelBoostMode()" class="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-orange-400/40 text-xs font-bold text-orange-200 shrink-0 transition">
+                        Annuler le Boost
+                    </button>
+                </div>
+
+                <!-- Active Vacation Banner -->
+                <div id="vacation-active-banner" class="hidden rounded-2xl bg-sky-500/15 border border-sky-400/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div class="space-y-0.5">
+                        <p class="text-xs font-extrabold uppercase tracking-wider text-sky-300">Mode Vacances actif (Absence)</p>
+                        <p id="vacation-status-detail" class="text-xs text-slate-200"></p>
+                    </div>
+                    <button type="button" onclick="toggleVacationMode()" class="px-3.5 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-sky-400/40 text-xs font-bold text-sky-200 shrink-0 transition">
+                        Quitter Vacances
+                    </button>
+                </div>
+
+                <!-- Telemetry KPIs -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4">
+                        <p class="text-xs text-slate-400 font-medium">Température Télécommande</p>
+                        <p id="kpi-ambient-temp" class="text-2xl font-extrabold text-orange-400 mt-1">-- °C</p>
+                    </div>
+                    <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4">
+                        <p class="text-xs text-slate-400 font-medium">Consigne Demandée</p>
+                        <p id="kpi-target-temp" class="text-2xl font-extrabold text-white mt-1">-- °C</p>
+                    </div>
+                    <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4">
+                        <p class="text-xs text-slate-400 font-medium">Température Fumées</p>
+                        <p id="kpi-exhaust-temp" class="text-2xl font-extrabold text-amber-300 mt-1">-- °C</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Temperature, Power & Fan Controls -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Target Temperature Card -->
+                <div class="glass-card p-5 sm:p-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h2 class="text-base font-bold text-white">Consigne de Température</h2>
+                            <p class="text-xs text-slate-400">Ajustement par pas de 0,5 °C</p>
+                        </div>
+                        <span id="pending-temp-badge" class="hidden px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                            Non envoyé
+                        </span>
+                    </div>
+
+                    <div class="flex items-center justify-between gap-4 py-2">
+                        <button id="btn-temp-minus" type="button" onclick="adjustTargetTemp(-0.5)" disabled class="w-14 h-14 rounded-2xl bg-slate-800 hover:bg-slate-700 text-2xl font-bold text-white border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">
+                            −
+                        </button>
+                        <div class="text-center">
+                            <span id="target-temp-display" class="text-4xl font-extrabold text-white">--.-</span>
+                            <span class="text-lg font-bold text-slate-400 ml-1">°C</span>
+                        </div>
+                        <button id="btn-temp-plus" type="button" onclick="adjustTargetTemp(0.5)" disabled class="w-14 h-14 rounded-2xl bg-slate-800 hover:bg-slate-700 text-2xl font-bold text-white border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">
+                            +
+                        </button>
+                    </div>
+
+                    <button id="btn-apply-temp" type="button" onclick="applyTargetTemp()" disabled class="w-full py-3 rounded-2xl text-xs font-extrabold uppercase tracking-wider bg-orange-500 hover:bg-orange-400 text-slate-950 disabled:opacity-40 disabled:pointer-events-none transition">
+                        Envoyer la consigne au poêle
+                    </button>
+                </div>
+
+                <!-- Power & Fan Levels Card -->
+                <div class="glass-card p-5 sm:p-6 space-y-5">
+                    <div class="space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Puissance Flammes (1 - 5)</span>
+                            <span id="power-level-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-orange-500/15 text-orange-300 border border-orange-500/30">--</span>
+                        </div>
+                        <div id="power-level-buttons" class="grid grid-cols-5 gap-2">
+                            <button type="button" data-power="1" onclick="setPowerLevel(1)" disabled class="power-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">P1</button>
+                            <button type="button" data-power="2" onclick="setPowerLevel(2)" disabled class="power-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">P2</button>
+                            <button type="button" data-power="3" onclick="setPowerLevel(3)" disabled class="power-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">P3</button>
+                            <button type="button" data-power="4" onclick="setPowerLevel(4)" disabled class="power-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">P4</button>
+                            <button type="button" data-power="5" onclick="setPowerLevel(5)" disabled class="power-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">P5</button>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold uppercase tracking-wider text-slate-300">Ventilation Ambiante (1 - 5)</span>
+                            <span id="fan-level-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-sky-500/15 text-sky-300 border border-sky-500/30">--</span>
+                        </div>
+                        <div id="fan-level-buttons" class="grid grid-cols-5 gap-2">
+                            <button type="button" data-fan="1" onclick="setFanLevel(1)" disabled class="fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">V1</button>
+                            <button type="button" data-fan="2" onclick="setFanLevel(2)" disabled class="fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">V2</button>
+                            <button type="button" data-fan="3" onclick="setFanLevel(3)" disabled class="fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">V3</button>
+                            <button type="button" data-fan="4" onclick="setFanLevel(4)" disabled class="fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">V4</button>
+                            <button type="button" data-fan="5" onclick="setFanLevel(5)" disabled class="fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition">V5</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: SCHEDULE -->
+        <section id="panel-schedule" class="hidden space-y-6">
+            <div class="glass-card p-5 sm:p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Plages Horaires &amp; Profils d'Hystérésis</h2>
+                        <p id="schedule-engine-status" class="text-xs text-slate-400 mt-0.5">
+                            Éco : allume à −1,0°C de la consigne · Normal : allume à −0,1°C, chauffe jusqu'à +0,5°C · Confort : allume sous +0,4°C, chauffe jusqu'à +1,5°C
+                        </p>
+                    </div>
+                    <span id="active-schedule-banner" class="px-3 py-1.5 rounded-xl border text-xs font-bold bg-slate-900 text-slate-300 border-slate-700 self-start sm:self-auto">
+                        Aucune plage active
+                    </span>
+                </div>
+
+                <!-- Add Schedule Form -->
+                <form id="schedule-form" onsubmit="addScheduleSlot(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 pt-2">
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Jour</label>
+                        <select id="sched-day" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white">
+                            <option value="all">Tous les jours</option>
+                            <option value="weekday">Semaine (Lun-Ven)</option>
+                            <option value="weekend">Week-end (Sam-Dim)</option>
+                            <option value="1">Lundi</option>
+                            <option value="2">Mardi</option>
+                            <option value="3">Mercredi</option>
+                            <option value="4">Jeudi</option>
+                            <option value="5">Vendredi</option>
+                            <option value="6">Samedi</option>
+                            <option value="0">Dimanche</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Début</label>
+                        <input id="sched-start" type="time" value="17:00" required class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Fin</label>
+                        <input id="sched-end" type="time" value="19:00" required class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Consigne (°C)</label>
+                        <input id="sched-temp" type="number" step="0.5" min="10" max="30" value="18.0" required class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">Profil</label>
+                        <select id="sched-profile" class="w-full px-3 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold text-white">
+                            <option value="eco">Éco (−1,0°C)</option>
+                            <option value="normal" selected>Normal (−0,1°C / +0,5°C)</option>
+                            <option value="comfort">Confort (+0,4°C / +1,5°C)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full py-2.5 px-4 rounded-xl text-xs font-extrabold bg-orange-500 hover:bg-orange-400 text-slate-950 transition">
+                            + Ajouter
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Schedule List -->
+            <div class="glass-card p-5 sm:p-6 space-y-3">
+                <h3 class="text-sm font-bold text-white">Créneaux programmés</h3>
+                <div id="schedule-list" class="space-y-2.5"></div>
+            </div>
+        </section>
+
+        <!-- TAB 3: SETTINGS & ALERTS -->
+        <section id="panel-settings" class="hidden space-y-6">
+            <div class="glass-card p-5 sm:p-6 space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Paramètres du Poêle &amp; Notifications</h2>
+                        <p class="text-xs text-slate-400">Réglez les seuils d'alerte (dont cuve de granulés vide) et l'envoi de notifications.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span id="notif-permission-badge" class="px-3 py-1 rounded-xl text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                            Notifs : non vérifiées
+                        </span>
+                        <button type="button" onclick="requestBrowserNotificationPermission()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-slate-950 transition">
+                            Activer notifs téléphone
+                        </button>
+                    </div>
+                </div>
+
+                <form id="settings-form" onsubmit="saveSettingsForm(event)" class="space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4 space-y-2">
+                            <label class="block text-xs font-bold text-sky-300">Température max Mode Vacances (°C)</label>
+                            <p class="text-[11px] text-slate-400">Éteint le poêle si la télécommande atteint ou dépasse cette limite en absence (défaut : 14,0 °C).</p>
+                            <input id="set-vacation-max-temp" type="number" step="0.5" min="5" max="25" value="14.0" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold text-white">
+                        </div>
+
+                        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4 space-y-2">
+                            <label class="block text-xs font-bold text-amber-300">Seuil alerte fumées élevées (°C)</label>
+                            <p class="text-[11px] text-slate-400">Déclenche une alerte et notification si la sonde fumées dépasse cette valeur (défaut : 260 °C).</p>
+                            <input id="set-exhaust-alert-temp" type="number" step="5" min="120" max="400" value="260" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-sm font-bold text-white">
+                        </div>
+
+                        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4 space-y-2">
+                            <label class="block text-xs font-bold text-rose-300">Alerte cuve vide / manque granulés</label>
+                            <p class="text-[11px] text-slate-400">Détecte l'extinction inattendue / défaut d'alimentation granulés ou code alarme cuve vide.</p>
+                            <label class="flex items-center gap-2.5 pt-1 cursor-pointer">
+                                <input id="set-alert-pellet-empty" type="checkbox" checked class="w-4 h-4 rounded accent-orange-500">
+                                <span class="text-xs font-semibold text-slate-200">Activer l'alerte cuve vide / granulés</span>
+                            </label>
+                        </div>
+
+                        <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4 space-y-2">
+                            <label class="block text-xs font-bold text-emerald-300">Notifications &amp; son d'alerte</label>
+                            <p class="text-[11px] text-slate-400">Envoie une notification système et un signal sonore discret lors d'une alerte critique.</p>
+                            <div class="flex flex-col gap-2 pt-1">
+                                <label class="flex items-center gap-2.5 cursor-pointer">
+                                    <input id="set-enable-notifications" type="checkbox" checked class="w-4 h-4 rounded accent-orange-500">
+                                    <span class="text-xs font-semibold text-slate-200">Notifications push navigateur</span>
+                                </label>
+                                <label class="flex items-center gap-2.5 cursor-pointer">
+                                    <input id="set-enable-sound" type="checkbox" checked class="w-4 h-4 rounded accent-orange-500">
+                                    <span class="text-xs font-semibold text-slate-200">Signal sonore sur alerte</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-2 rounded-2xl bg-emerald-950/25 border border-emerald-500/30 p-4 space-y-3">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <label class="block text-xs font-bold text-emerald-300">Alertes WhatsApp (hors application)</label>
+                                    <p class="text-[11px] text-slate-400">Envoie un message WhatsApp dès qu'une alerte se déclenche (compatible CallMeBot ou webhook HTTP avec <code class="text-emerald-200">{message}</code>, <code class="text-emerald-200">{title}</code>, <code class="text-emerald-200">{phone}</code>).</p>
+                                </div>
+                                <label class="flex items-center gap-2 cursor-pointer shrink-0">
+                                    <input id="set-whatsapp-enabled" type="checkbox" class="w-4 h-4 rounded accent-emerald-500">
+                                    <span class="text-xs font-bold text-emerald-200">Activer WhatsApp</span>
+                                </label>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Numéro WhatsApp (format international)</label>
+                                    <input id="set-whatsapp-phone" type="tel" placeholder="ex: +33612345678" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-semibold text-white placeholder-slate-500">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">URL Webhook / Passerelle WhatsApp</label>
+                                    <input id="set-whatsapp-webhook" type="url" placeholder="https://api.callmebot.com/whatsapp.php?phone={phone}&text={message}&apikey=CLE" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs font-semibold text-white placeholder-slate-500">
+                                </div>
+                            </div>
+                            <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                <span id="whatsapp-status-hint" class="text-[11px] text-slate-400">Aucune alerte WhatsApp envoyée</span>
+                                <button type="button" onclick="sendTestWhatsAppAlert()" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 transition">
+                                    Tester l'envoi WhatsApp
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="submit" class="px-5 py-3 rounded-2xl text-xs font-extrabold uppercase tracking-wider bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 transition">
+                            Enregistrer les paramètres
+                        </button>
+                        <button type="button" onclick="sendTestNotification()" class="px-4 py-3 rounded-2xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                            Tester une notification / alerte
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Alerts History -->
+            <div class="glass-card p-5 sm:p-6 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-white">Historique des alertes &amp; notifications</h3>
+                    <button type="button" onclick="clearAlertsHistory()" class="text-xs font-semibold text-slate-400 hover:text-white transition">
+                        Effacer l'historique
+                    </button>
+                </div>
+                <div id="alerts-history-list" class="space-y-2">
+                    <p class="text-xs text-slate-400">Aucune alerte enregistrée.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: API & CONFIG -->
+        <section id="panel-config" class="hidden space-y-6">
+            <div class="glass-card p-5 sm:p-6 space-y-5">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                        <h2 class="text-base font-bold text-white">Connexion Cloud Jolly Mec (Agua IOT)</h2>
+                        <p class="text-xs text-slate-400">Vos identifiants sont conservés localement dans le cache de votre appareil.</p>
+                    </div>
+                    <span id="local-cache-badge" class="px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 self-start sm:self-auto">
+                        Cache local actif
+                    </span>
+                </div>
+
+                <form id="connect-form" onsubmit="handleConnectSubmit(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">E-mail Jolly Mec Wi-Fi</label>
+                            <input id="cfg-email" type="email" required placeholder="nom@exemple.com" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-orange-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Mot de passe</label>
+                            <input id="cfg-password" type="password" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-orange-500">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Serveur API Agua IOT</label>
+                            <input id="cfg-api-url" type="text" value="https://jollymec.agua-iot.com" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-orange-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Customer Code</label>
+                            <input id="cfg-customer-code" type="text" value="526973" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white focus:outline-none focus:border-orange-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Proxy CORS (optionnel)</label>
+                            <input id="cfg-proxy-url" type="text" placeholder="ex: http://192.168.1.50:8010/proxy" class="w-full px-3.5 py-2.5 rounded-2xl bg-slate-900 border border-slate-800 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-orange-500">
+                        </div>
+                    </div>
+
+                    <div class="rounded-2xl bg-sky-500/10 border border-sky-500/30 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="space-y-0.5">
+                            <p class="text-xs font-bold text-sky-300">Paramètre Mode Vacances (Température max à ne pas dépasser)</p>
+                            <p class="text-[11px] text-slate-300">Quand vous êtes absent, le poêle s'éteint si la télécommande atteint ou dépasse cette limite (14,0 °C par défaut).</p>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <input id="cfg-vacation-max-temp" type="number" step="0.5" min="5" max="25" value="14.0" class="w-24 px-3 py-2 rounded-xl bg-slate-900 border border-sky-500/40 text-sm font-bold text-white text-center focus:outline-none focus:border-sky-400">
+                            <span class="text-xs font-bold text-sky-300">°C</span>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-3 pt-2">
+                        <button id="btn-connect-submit" type="submit" class="px-5 py-3 rounded-2xl text-xs font-extrabold uppercase tracking-wider bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-400 hover:to-amber-400 text-slate-950 transition">
+                            Se connecter au poêle
+                        </button>
+                        <button type="button" onclick="disconnectSession()" class="px-4 py-3 rounded-2xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
+                            Déconnexion
+                        </button>
+                        <button type="button" onclick="clearLocalAuthCache()" class="px-4 py-3 rounded-2xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition">
+                            Effacer le cache local
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- API Log Console -->
+            <div class="glass-card p-5 sm:p-6 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-sm font-bold text-white">Journal d'activité API</h3>
+                    <button type="button" onclick="clearApiLog()" class="text-xs font-semibold text-slate-400 hover:text-white transition">
+                        Vider
+                    </button>
+                </div>
+                <div id="api-log-list" class="max-h-56 overflow-y-auto space-y-1.5 text-xs font-mono bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                    <p class="text-slate-500">Aucun échange enregistré pour le moment.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const STORAGE_KEY = 'jolly_mec_agua_iot_v1';
+        const EEPROM_DAILY_LIMIT = 20;
+
+        const AGUA_DEFAULTS = {
+            apiUrl: 'https://jollymec.agua-iot.com',
+            loginApiUrl: 'https://jollymec.agua-iot.com',
+            customerCode: '526973',
+            proxyUrl: ''
+        };
+
+        const STOVE_STATES = {
+            0: { label: 'Éteint', active: false },
+            1: { label: 'Allumage', active: true },
+            2: { label: 'Préchauffage', active: true },
+            3: { label: 'Chauffe en cours', active: true },
+            4: { label: 'Modulation / Maintien', active: true },
+            5: { label: 'Nettoyage', active: true },
+            6: { label: 'Refroidissement', active: false },
+            7: { label: 'Veille / Off', active: false }
+        };
+
+        const PROFILE_SPECS = {
+            eco: {
+                label: 'Éco',
+                badgeClass: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+                onOffset: -1.0,
+                offOffset: 0.0,
+                summary: 'Allume à −1,0°C de la consigne'
+            },
+            normal: {
+                label: 'Normal',
+                badgeClass: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+                onOffset: -0.1,
+                offOffset: 0.5,
+                summary: 'Allume à −0,1°C, chauffe jusqu\'à +0,5°C'
+            },
+            comfort: {
+                label: 'Confort',
+                badgeClass: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
+                onOffset: 0.4,
+                offOffset: 1.5,
+                summary: 'Allume sous +0,4°C, chauffe jusqu\'à +1,5°C'
+            }
+        };
+
+        const state = {
+            activeTab: 'control',
+            config: {
+                email: '',
+                password: '',
+                apiUrl: AGUA_DEFAULTS.apiUrl,
+                loginApiUrl: AGUA_DEFAULTS.loginApiUrl,
+                customerCode: AGUA_DEFAULTS.customerCode,
+                proxyUrl: AGUA_DEFAULTS.proxyUrl
+            },
+            auth: {
+                connected: false,
+                token: '',
+                uuid: '',
+                deviceId: '',
+                deviceName: ''
+            },
+            stove: {
+                statusCode: null,
+                alarmCode: null,
+                pelletEmpty: false,
+                ambientTemp: null,
+                targetTemp: null,
+                pendingTargetTemp: null,
+                exhaustTemp: null,
+                powerLevel: null,
+                fanLevel: null
+            },
+            settings: {
+                exhaustAlertTemp: 260,
+                alertPelletEmpty: true,
+                enableNotifications: true,
+                enableSound: true,
+                whatsappEnabled: false,
+                whatsappPhone: '',
+                whatsappWebhook: ''
+            },
+            alerts: {
+                active: [],
+                history: []
+            },
+            boost: {
+                active: false,
+                baseTargetTemp: null,
+                boostTargetTemp: null,
+                startedAt: null
+            },
+            vacation: {
+                active: false,
+                maxTemp: 14.0
+            },
+            schedules: [
+                { id: 's-1', day: 'all', start: '17:00', end: '19:00', temp: 18.0, profile: 'normal', enabled: true }
+            ],
+            eeprom: {
+                date: new Date().toISOString().slice(0, 10),
+                count: 0
+            },
+            logs: []
+        };
+
+        let pollingTimer = null;
+        let confirmCallback = null;
+
+        function ensureClientUUID() {
+            if (!state.auth.uuid) {
+                if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                    state.auth.uuid = window.crypto.randomUUID();
+                } else {
+                    state.auth.uuid = 'jm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+                }
+            }
+            return state.auth.uuid;
+        }
+
+        function syncEepromDay() {
+            const today = new Date().toISOString().slice(0, 10);
+            if (state.eeprom.date !== today) {
+                state.eeprom.date = today;
+                state.eeprom.count = 0;
+            }
+        }
+
+        function incrementEepromCount(steps = 1) {
+            syncEepromDay();
+            state.eeprom.count += steps;
+            if (state.eeprom.count >= EEPROM_DAILY_LIMIT) {
+                showToast(`Attention : limite quotidienne EEPROM atteinte (${state.eeprom.count}/${EEPROM_DAILY_LIMIT})`, 'warn');
+            }
+        }
+
+        function logApi(level, message, payload = null) {
+            const entry = {
+                time: new Date().toLocaleTimeString('fr-FR'),
+                level,
+                message,
+                payload
+            };
+            state.logs.unshift(entry);
+            if (state.logs.length > 40) state.logs.pop();
+            renderLogs();
+        }
+
+        function clearApiLog() {
+            state.logs = [];
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('api-log-list');
+            if (!container) return;
+            if (!state.logs.length) {
+                container.innerHTML = '<p class="text-slate-500">Aucun échange enregistré pour le moment.</p>';
+                return;
+            }
+            container.innerHTML = state.logs.map((l) => {
+                const color = l.level === 'ERROR' ? 'text-rose-400' : (l.level === 'WARN' ? 'text-amber-300' : 'text-emerald-300');
+                return `<div><span class="text-slate-500">[${l.time}]</span> <span class="${color} font-bold">${l.level}</span> <span class="text-slate-200">${escapeHtml(l.message)}</span></div>`;
+            }).join('');
+        }
+
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            const styles = {
+                info: 'bg-slate-900 border-slate-700 text-slate-100',
+                success: 'bg-emerald-950/95 border-emerald-500/40 text-emerald-200',
+                warn: 'bg-amber-950/95 border-amber-500/40 text-amber-200',
+                error: 'bg-rose-950/95 border-rose-500/40 text-rose-200'
+            };
+            toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border text-xs font-semibold shadow-xl ${styles[type] || styles.info}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.remove();
+            }, 3800);
+        }
+
+        function openConfirmModal(title, message, onConfirm) {
+            confirmCallback = onConfirm;
+            safeSetText('confirm-title', title);
+            safeSetText('confirm-message', message);
+            safeToggleHidden('confirm-modal', false);
+        }
+
+        function closeConfirmModal(accepted) {
+            safeToggleHidden('confirm-modal', true);
+            const cb = confirmCallback;
+            confirmCallback = null;
+            if (accepted && typeof cb === 'function') {
+                cb();
+            }
+        }
+
+        function safeSetText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = text;
+        }
+
+        function safeSetClass(id, className) {
+            const el = document.getElementById(id);
+            if (el) el.className = className;
+        }
+
+        function safeToggleHidden(id, hidden) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('hidden', Boolean(hidden));
+        }
+
+        function isSessionReady() {
+            return Boolean(state.auth.connected && state.auth.token && state.auth.deviceId);
+        }
+
+        function loadPersistedState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed.config) state.config = { ...state.config, ...parsed.config };
+                    if (parsed.auth) state.auth = { ...state.auth, ...parsed.auth, connected: false };
+                    if (parsed.settings) state.settings = { ...state.settings, ...parsed.settings };
+                    if (parsed.alerts && Array.isArray(parsed.alerts.history)) {
+                        state.alerts.history = parsed.alerts.history;
+                    }
+                    if (parsed.vacation) {
+                        state.vacation = {
+                            ...state.vacation,
+                            ...parsed.vacation,
+                            maxTemp: typeof parsed.vacation.maxTemp === 'number' && !Number.isNaN(parsed.vacation.maxTemp)
+                                ? parsed.vacation.maxTemp
+                                : 14.0
+                        };
+                    }
+                    if (Array.isArray(parsed.schedules)) state.schedules = parsed.schedules;
+                    if (parsed.eeprom) state.eeprom = { ...state.eeprom, ...parsed.eeprom };
+                }
+            } catch (err) {
+                logApi('WARN', 'Lecture du cache local impossible : ' + err.message);
+            }
+            ensureClientUUID();
+            syncEepromDay();
+        }
+
+        function savePersistedState() {
+            try {
+                ensureClientUUID();
+                syncEepromDay();
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    config: state.config,
+                    auth: state.auth,
+                    settings: state.settings,
+                    alerts: { history: state.alerts.history.slice(0, 50) },
+                    vacation: state.vacation,
+                    schedules: state.schedules,
+                    eeprom: state.eeprom
+                }));
+            } catch (err) {
+                logApi('WARN', 'Sauvegarde du cache local impossible : ' + err.message);
+            }
+        }
+
+        function populateConfigForm() {
+            const elEmail = document.getElementById('cfg-email');
+            const elPass = document.getElementById('cfg-password');
+            const elApi = document.getElementById('cfg-api-url');
+            const elCust = document.getElementById('cfg-customer-code');
+            const elProxy = document.getElementById('cfg-proxy-url');
+            const elVacMax = document.getElementById('cfg-vacation-max-temp');
+
+            if (elEmail) elEmail.value = state.config.email || '';
+            if (elPass) elPass.value = state.config.password || '';
+            if (elApi) elApi.value = state.config.apiUrl || AGUA_DEFAULTS.apiUrl;
+            if (elCust) elCust.value = state.config.customerCode || AGUA_DEFAULTS.customerCode;
+            if (elProxy) elProxy.value = state.config.proxyUrl || '';
+            if (elVacMax) elVacMax.value = Number(state.vacation.maxTemp ?? 14.0).toFixed(1);
+
+            populateSettingsForm();
+        }
+
+        function populateSettingsForm() {
+            const elVac = document.getElementById('set-vacation-max-temp');
+            const elExh = document.getElementById('set-exhaust-alert-temp');
+            const elPellet = document.getElementById('set-alert-pellet-empty');
+            const elNotif = document.getElementById('set-enable-notifications');
+            const elSound = document.getElementById('set-enable-sound');
+            const elWaEnabled = document.getElementById('set-whatsapp-enabled');
+            const elWaPhone = document.getElementById('set-whatsapp-phone');
+            const elWaWebhook = document.getElementById('set-whatsapp-webhook');
+
+            if (elVac) elVac.value = Number(state.vacation.maxTemp ?? 14.0).toFixed(1);
+            if (elExh) elExh.value = Number(state.settings.exhaustAlertTemp ?? 260);
+            if (elPellet) elPellet.checked = Boolean(state.settings.alertPelletEmpty);
+            if (elNotif) elNotif.checked = Boolean(state.settings.enableNotifications);
+            if (elSound) elSound.checked = Boolean(state.settings.enableSound);
+            if (elWaEnabled) elWaEnabled.checked = Boolean(state.settings.whatsappEnabled);
+            if (elWaPhone) elWaPhone.value = state.settings.whatsappPhone || '';
+            if (elWaWebhook) elWaWebhook.value = state.settings.whatsappWebhook || '';
+            updateNotificationPermissionBadge();
+        }
+
+        function updateNotificationPermissionBadge() {
+            const badge = document.getElementById('notif-permission-badge');
+            if (!badge) return;
+
+            if (!('Notification' in window)) {
+                badge.textContent = 'Notifs : non supportées';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+                return;
+            }
+
+            const perm = Notification.permission;
+            if (perm === 'granted') {
+                badge.textContent = 'Notifs : activées';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+            } else if (perm === 'denied') {
+                badge.textContent = 'Notifs : bloquées';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30';
+            } else {
+                badge.textContent = 'Notifs : à activer';
+                badge.className = 'px-3 py-1 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30';
+            }
+        }
+
+        async function dispatchWhatsAppAlert(title, detail, eventTime = null) {
+            if (!state.settings.whatsappEnabled) return;
+            const webhook = (state.settings.whatsappWebhook || '').trim();
+            const phone = (state.settings.whatsappPhone || '').trim();
+            const timeStr = eventTime || new Date().toLocaleTimeString('fr-FR');
+            const messageText = `🔥 Jolly Mec [${timeStr}] · ${title} : ${detail}`;
+
+            if (!webhook) {
+                logApi('WARN', 'Alerte WhatsApp active mais aucune URL webhook configurée');
+                safeSetText('whatsapp-status-hint', 'URL webhook manquante dans Paramètres');
+                return;
+            }
+
+            try {
+                const encodedMsg = encodeURIComponent(messageText);
+                const encodedTitle = encodeURIComponent(title);
+                const encodedPhone = encodeURIComponent(phone);
+                const encodedTime = encodeURIComponent(timeStr);
+
+                let targetUrl = webhook
+                    .replace(/\{message\}/gi, encodedMsg)
+                    .replace(/\{title\}/gi, encodedTitle)
+                    .replace(/\{phone\}/gi, encodedPhone)
+                    .replace(/\{time\}/gi, encodedTime);
+
+                if (targetUrl === webhook) {
+                    const sep = targetUrl.includes('?') ? '&' : '?';
+                    targetUrl = `${targetUrl}${sep}text=${encodedMsg}${phone ? `&phone=${encodedPhone}` : ''}`;
+                }
+
+                // Appel GET compatible CallMeBot & webhooks HTTP standards
+                await fetch(targetUrl, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+
+                const nowStr = new Date().toLocaleTimeString('fr-FR');
+                logApi('INFO', `Alerte WhatsApp envoyée (${timeStr}) : ${title}`);
+                safeSetText('whatsapp-status-hint', `Dernier envoi WhatsApp à ${nowStr} (problème à ${timeStr})`);
+            } catch (err) {
+                logApi('ERROR', `Échec envoi WhatsApp : ${err.message}`);
+                safeSetText('whatsapp-status-hint', `Erreur envoi : ${err.message}`);
+            }
+        }
+
+        async function sendTestWhatsAppAlert() {
+            const elWaEnabled = document.getElementById('set-whatsapp-enabled');
+            const elWaPhone = document.getElementById('set-whatsapp-phone');
+            const elWaWebhook = document.getElementById('set-whatsapp-webhook');
+            if (elWaEnabled) state.settings.whatsappEnabled = Boolean(elWaEnabled.checked);
+            if (elWaPhone) state.settings.whatsappPhone = elWaPhone.value.trim();
+            if (elWaWebhook) state.settings.whatsappWebhook = elWaWebhook.value.trim();
+            savePersistedState();
+
+            if (!state.settings.whatsappEnabled) {
+                showToast('Cochez "Activer WhatsApp" avant de lancer le test', 'warn');
+                return;
+            }
+            const problemTime = new Date().toLocaleTimeString('fr-FR');
+            await dispatchWhatsAppAlert(
+                'Test de connexion WhatsApp',
+                `Ceci est un message de test envoyé à ${problemTime} depuis votre dashboard Jolly Mec (aucun défaut détecté).`,
+                problemTime
+            );
+            showToast(`Test WhatsApp envoyé (heure ${problemTime})`, 'info');
+        }
+
+        async function requestBrowserNotificationPermission() {
+            if (!('Notification' in window)) {
+                showToast('Les notifications système ne sont pas supportées sur ce navigateur', 'warn');
+                return;
+            }
+            try {
+                const perm = await Notification.requestPermission();
+                updateNotificationPermissionBadge();
+                if (perm === 'granted') {
+                    showToast('Notifications téléphone activées', 'success');
+                    triggerSystemNotification('Jolly Mec · Agua IOT', 'Les notifications d\'alerte sont actives.');
+                } else {
+                    showToast('Permission de notification non accordée', 'warn');
+                }
+            } catch (err) {
+                showToast('Erreur notification : ' + err.message, 'error');
+            }
+        }
+
+        function playAlertBeep() {
+            if (!state.settings.enableSound) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (!AudioCtx) return;
+                const ctx = new AudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(740, ctx.currentTime);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.22);
+            } catch (_) {
+                // Ignorer si l'audio est bloqué avant interaction utilisateur
+            }
+        }
+
+        function triggerSystemNotification(title, body) {
+            playAlertBeep();
+            if (!state.settings.enableNotifications) return;
+            if ('Notification' in window && Notification.permission === 'granted') {
+                try {
+                    new Notification(title, { body, tag: 'jolly-mec-alert' });
+                } catch (_) {
+                    // Fallback toast déjà affiché
+                }
+            }
+        }
+
+        function raiseAlert(code, title, detail) {
+            const exists = state.alerts.active.some((a) => a.code === code);
+            if (!exists) {
+                const timeStr = new Date().toLocaleTimeString('fr-FR');
+                const fullDetail = `${detail} (Heure : ${timeStr})`;
+                const alertObj = {
+                    code,
+                    title,
+                    detail: fullDetail,
+                    time: timeStr
+                };
+                state.alerts.active.unshift(alertObj);
+                state.alerts.history.unshift({ ...alertObj, date: new Date().toLocaleDateString('fr-FR') });
+                if (state.alerts.history.length > 50) state.alerts.history.pop();
+                savePersistedState();
+                logApi('WARN', `Alerte [${title}] à ${timeStr} : ${detail}`);
+                showToast(`Alerte (${timeStr}) : ${title}`, 'warn');
+                triggerSystemNotification(`Alerte Poêle (${timeStr}) : ${title}`, fullDetail);
+                dispatchWhatsAppAlert(title, fullDetail, timeStr);
+            }
+        }
+
+        function resolveAlert(code) {
+            const before = state.alerts.active.length;
+            state.alerts.active = state.alerts.active.filter((a) => a.code !== code);
+            if (state.alerts.active.length !== before) {
+                renderAlerts();
+            }
+        }
+
+        function acknowledgeAllAlerts() {
+            state.alerts.active = [];
+            renderAlerts();
+            showToast('Alertes actives acquittées', 'info');
+        }
+
+        function clearAlertsHistory() {
+            state.alerts.history = [];
+            savePersistedState();
+            renderAlerts();
+            showToast('Historique des alertes effacé', 'info');
+        }
+
+        function evaluateTelemetryAlerts() {
+            if (!isSessionReady()) return;
+
+            const alarmVal = Number(state.stove.alarmCode ?? 0);
+            const isPelletAlarmCode = alarmVal === 2 || alarmVal === 5 || alarmVal === 9 || Boolean(state.stove.pelletEmpty);
+            if (state.settings.alertPelletEmpty && isPelletAlarmCode) {
+                raiseAlert(
+                    'pellet_empty',
+                    'Cuve à granulés vide / défaut alimentation',
+                    `Le poêle signale une absence de granulés ou un défaut d'alimentation (code ${alarmVal || 'cuve'}).`
+                );
+            } else if (!isPelletAlarmCode) {
+                resolveAlert('pellet_empty');
+            }
+
+            if (alarmVal > 0 && !isPelletAlarmCode) {
+                raiseAlert(
+                    `alarm_${alarmVal}`,
+                    `Défaut poêle (Code ${alarmVal})`,
+                    `Une alarme Micronova active (code ${alarmVal}) a été détectée sur le poêle.`
+                );
+            }
+
+            const exhLimit = Number(state.settings.exhaustAlertTemp ?? 260);
+            if (state.stove.exhaustTemp !== null && state.stove.exhaustTemp >= exhLimit) {
+                raiseAlert(
+                    'high_exhaust',
+                    'Température des fumées élevée',
+                    `Les fumées atteignent ${state.stove.exhaustTemp} °C (seuil configuré : ${exhLimit} °C).`
+                );
+            } else if (state.stove.exhaustTemp !== null && state.stove.exhaustTemp < exhLimit - 10) {
+                resolveAlert('high_exhaust');
+            }
+        }
+
+        function saveSettingsForm(event) {
+            event.preventDefault();
+            const vacVal = parseFloat(document.getElementById('set-vacation-max-temp').value);
+            const exhVal = parseFloat(document.getElementById('set-exhaust-alert-temp').value);
+
+            if (!Number.isNaN(vacVal)) {
+                state.vacation.maxTemp = Math.min(25, Math.max(5, Math.round(vacVal * 2) / 2));
+                const cfgVac = document.getElementById('cfg-vacation-max-temp');
+                if (cfgVac) cfgVac.value = state.vacation.maxTemp.toFixed(1);
+            }
+            if (!Number.isNaN(exhVal)) {
+                state.settings.exhaustAlertTemp = Math.min(400, Math.max(120, Math.round(exhVal)));
+            }
+            state.settings.alertPelletEmpty = Boolean(document.getElementById('set-alert-pellet-empty').checked);
+            state.settings.enableNotifications = Boolean(document.getElementById('set-enable-notifications').checked);
+            state.settings.enableSound = Boolean(document.getElementById('set-enable-sound').checked);
+            state.settings.whatsappEnabled = Boolean(document.getElementById('set-whatsapp-enabled').checked);
+            state.settings.whatsappPhone = document.getElementById('set-whatsapp-phone').value.trim();
+            state.settings.whatsappWebhook = document.getElementById('set-whatsapp-webhook').value.trim();
+
+            savePersistedState();
+            evaluateTelemetryAlerts();
+            renderAll();
+            showToast('Paramètres et alertes enregistrés', 'success');
+        }
+
+        function sendTestNotification() {
+            raiseAlert(
+                'test_alert',
+                'Test de notification',
+                'Vérification des alertes visuelles, sonores et notifications du téléphone (ceci est un test).'
+            );
+            renderAlerts();
+        }
+
+        function renderAlerts() {
+            const panel = document.getElementById('active-alerts-panel');
+            const list = document.getElementById('active-alerts-list');
+            const countBadge = document.getElementById('alerts-count-badge');
+            const histList = document.getElementById('alerts-history-list');
+
+            const activeCount = state.alerts.active.length;
+            if (countBadge) {
+                countBadge.textContent = String(activeCount);
+                countBadge.classList.toggle('hidden', activeCount === 0);
+            }
+
+            if (panel && list) {
+                panel.classList.toggle('hidden', activeCount === 0);
+                list.innerHTML = state.alerts.active.map((a) => `
+                    <div class="flex items-start justify-between gap-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/30">
+                        <div>
+                            <p class="text-xs font-extrabold text-rose-200">${escapeHtml(a.title)} <span class="text-[11px] font-normal text-rose-300/80">(${escapeHtml(a.time)})</span></p>
+                            <p class="text-xs text-rose-100/90 mt-0.5">${escapeHtml(a.detail)}</p>
+                        </div>
+                        <button type="button" onclick="resolveAlert('${escapeHtml(a.code)}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 shrink-0 transition">
+                            OK
+                        </button>
+                    </div>
+                `).join('');
+            }
+
+            if (histList) {
+                if (!state.alerts.history.length) {
+                    histList.innerHTML = '<p class="text-xs text-slate-400">Aucune alerte enregistrée.</p>';
+                } else {
+                    histList.innerHTML = state.alerts.history.map((h) => `
+                        <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-900/85 border border-slate-800">
+                            <div>
+                                <p class="text-xs font-bold text-white">${escapeHtml(h.title)}</p>
+                                <p class="text-[11px] text-slate-400">${escapeHtml(h.detail)}</p>
+                            </div>
+                            <span class="text-[11px] font-mono text-slate-400 shrink-0">${escapeHtml(h.date || '')} ${escapeHtml(h.time || '')}</span>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+            ['control', 'schedule', 'settings', 'config'].forEach((t) => {
+                safeToggleHidden(`panel-${t}`, t !== tabName);
+                const btn = document.getElementById(`tab-${t}`);
+                if (btn) {
+                    const baseCls = t === 'settings'
+                        ? 'py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center flex items-center justify-center gap-1.5'
+                        : 'py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center';
+                    btn.className = (t === tabName ? 'tab-btn-active ' : 'tab-btn-idle ') + baseCls;
+                }
+            });
+            if (tabName === 'settings') {
+                populateSettingsForm();
+                renderAlerts();
+            }
+        }
+
+        function buildAguaEndpoint(baseUrl, path, proxyUrl) {
+            const cleanBase = String(baseUrl || AGUA_DEFAULTS.apiUrl).replace(/\/+$/, '');
+            const cleanPath = path.startsWith('/') ? path : '/' + path;
+            const target = cleanBase + cleanPath;
+            if (proxyUrl && proxyUrl.trim()) {
+                const sep = proxyUrl.includes('?') ? '&' : '?';
+                return proxyUrl.trim() + sep + 'url=' + encodeURIComponent(target);
+            }
+            return target;
+        }
+
+        async function aguaPost(baseUrl, path, bodyObj, headers = {}) {
+            const url = buildAguaEndpoint(baseUrl, path, state.config.proxyUrl);
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...headers
+                },
+                body: JSON.stringify(bodyObj)
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                throw new Error(data.message || `Erreur HTTP ${res.status} sur ${path}`);
+            }
+            return data;
+        }
+
+        async function authenticateRealAguaIot() {
+            const uuid = ensureClientUUID();
+            const loginResp = await aguaPost(
+                state.config.loginApiUrl || state.config.apiUrl,
+                '/userLogin',
+                {
+                    email: state.config.email,
+                    password: state.config.password,
+                    customer_code: state.config.customerCode,
+                    uuid
+                }
+            );
+
+            const token = loginResp.token || (loginResp.data && loginResp.data.token) || '';
+            if (!token) {
+                throw new Error(loginResp.message || 'Authentification refusée : aucun jeton reçu');
+            }
+            state.auth.token = token;
+
+            const devResp = await aguaPost(
+                state.config.apiUrl,
+                '/deviceList',
+                { customer_code: state.config.customerCode, uuid },
+                { Authorization: `Bearer ${token}`, 'X-Token': token }
+            );
+
+            const devices = Array.isArray(devResp) ? devResp : (devResp.devices || devResp.data || []);
+            if (!Array.isArray(devices) || !devices.length) {
+                throw new Error('Aucun poêle trouvé sur ce compte Jolly Mec');
+            }
+
+            const first = devices[0];
+            state.auth.deviceId = String(first.id || first.device_id || first.mac || '');
+            state.auth.deviceName = String(first.name || first.label || first.model || 'Poêle Jolly Mec');
+            state.auth.connected = true;
+            savePersistedState();
+            logApi('INFO', `Connecté à ${state.auth.deviceName} (${state.auth.deviceId})`);
+        }
+
+        async function fetchRealDeviceStatus() {
+            if (!isSessionReady()) return;
+            const uuid = ensureClientUUID();
+            const resp = await aguaPost(
+                state.config.apiUrl,
+                '/deviceGetBufferReading',
+                {
+                    id: state.auth.deviceId,
+                    device_id: state.auth.deviceId,
+                    customer_code: state.config.customerCode,
+                    uuid
+                },
+                { Authorization: `Bearer ${state.auth.token}`, 'X-Token': state.auth.token }
+            );
+
+            const buf = resp.buffer || resp.data || resp;
+            if (typeof buf.status === 'number') state.stove.statusCode = buf.status;
+            if (typeof buf.t1 === 'number') state.stove.ambientTemp = Number(buf.t1.toFixed(1));
+            else if (typeof buf.ambient_temp === 'number') state.stove.ambientTemp = Number(buf.ambient_temp.toFixed(1));
+
+            if (typeof buf.t_set === 'number') {
+                state.stove.targetTemp = Number(buf.t_set.toFixed(1));
+                if (state.stove.pendingTargetTemp === null) {
+                    state.stove.pendingTargetTemp = state.stove.targetTemp;
+                }
+            }
+            if (typeof buf.t3 === 'number') state.stove.exhaustTemp = Math.round(buf.t3);
+            else if (typeof buf.exhaust_temp === 'number') state.stove.exhaustTemp = Math.round(buf.exhaust_temp);
+
+            if (typeof buf.power === 'number') state.stove.powerLevel = buf.power;
+            if (typeof buf.fan === 'number') state.stove.fanLevel = buf.fan;
+            if (typeof buf.alarm === 'number') state.stove.alarmCode = buf.alarm;
+            if (typeof buf.pellet_empty === 'boolean') state.stove.pelletEmpty = buf.pellet_empty;
+
+            safeSetText('stove-last-sync', `Synchronisé à ${new Date().toLocaleTimeString('fr-FR')}`);
+            evaluateTelemetryAlerts();
+            await evaluateBoostCompletion();
+            await evaluateVacationMode();
+            await evaluateScheduleEngine();
+            renderAll();
+        }
+
+        async function writeRealRegister(fields, reasonText = '') {
+            if (!isSessionReady()) {
+                throw new Error('Connexion API requise');
+            }
+            const uuid = ensureClientUUID();
+            const resp = await aguaPost(
+                state.config.apiUrl,
+                '/deviceSetBufferWriting',
+                {
+                    id: state.auth.deviceId,
+                    device_id: state.auth.deviceId,
+                    customer_code: state.config.customerCode,
+                    uuid,
+                    ...fields
+                },
+                { Authorization: `Bearer ${state.auth.token}`, 'X-Token': state.auth.token }
+            );
+            incrementEepromCount(1);
+            savePersistedState();
+            logApi('INFO', reasonText || `Écriture : ${JSON.stringify(fields)}`);
+            return resp;
+        }
+
+        async function handleConnectSubmit(event) {
+            event.preventDefault();
+            state.config.email = document.getElementById('cfg-email').value.trim();
+            state.config.password = document.getElementById('cfg-password').value;
+            state.config.apiUrl = (document.getElementById('cfg-api-url').value || AGUA_DEFAULTS.apiUrl).trim();
+            state.config.loginApiUrl = state.config.apiUrl;
+            state.config.customerCode = (document.getElementById('cfg-customer-code').value || AGUA_DEFAULTS.customerCode).trim();
+            state.config.proxyUrl = document.getElementById('cfg-proxy-url').value.trim();
+
+            const rawVacMax = parseFloat(document.getElementById('cfg-vacation-max-temp').value);
+            if (!Number.isNaN(rawVacMax)) {
+                state.vacation.maxTemp = Math.min(25, Math.max(5, Math.round(rawVacMax * 2) / 2));
+            }
+
+            savePersistedState();
+
+            try {
+                await authenticateRealAguaIot();
+                await fetchRealDeviceStatus();
+                startPollingLoop();
+                switchTab('control');
+                showToast('Connexion réussie au poêle Jolly Mec', 'success');
+            } catch (err) {
+                state.auth.connected = false;
+                logApi('ERROR', err.message);
+                showToast(err.message + ' (vérifiez la connexion ou un proxy CORS si besoin)', 'error');
+                renderAll();
+            }
+        }
+
+        function disconnectSession() {
+            state.auth.connected = false;
+            state.auth.token = '';
+            if (pollingTimer) {
+                clearInterval(pollingTimer);
+                pollingTimer = null;
+            }
+            savePersistedState();
+            logApi('INFO', 'Session fermée (identifiants conservés en cache local)');
+            showToast('Session déconnectée', 'info');
+            renderAll();
+        }
+
+        function clearLocalAuthCache() {
+            openConfirmModal(
+                'Effacer le cache local',
+                'Supprimer définitivement vos identifiants, jetons et paramètres enregistrés sur cet appareil ?',
+                () => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    state.auth.connected = false;
+                    state.auth.token = '';
+                    state.auth.deviceId = '';
+                    state.auth.deviceName = '';
+                    state.config.email = '';
+                    state.config.password = '';
+                    populateConfigForm();
+                    renderAll();
+                    showToast('Cache local effacé', 'info');
+                }
+            );
+        }
+
+        async function manualRefresh() {
+            if (!isSessionReady()) return;
+            try {
+                await fetchRealDeviceStatus();
+                showToast('État actualisé', 'success');
+            } catch (err) {
+                logApi('ERROR', err.message);
+                showToast(err.message, 'error');
+            }
+        }
+
+        function startPollingLoop() {
+            if (pollingTimer) clearInterval(pollingTimer);
+            pollingTimer = setInterval(() => {
+                if (isSessionReady()) {
+                    fetchRealDeviceStatus().catch((err) => logApi('WARN', err.message));
+                }
+            }, 30000);
+        }
+
+        async function toggleStovePower() {
+            if (!isSessionReady()) return;
+            const currentActive = Boolean((STOVE_STATES[state.stove.statusCode] || { active: false }).active);
+            const turnOn = !currentActive;
+            try {
+                await writeRealRegister(
+                    { command: turnOn ? 'ON' : 'OFF', status_managed: turnOn ? 1 : 0 },
+                    turnOn ? 'Allumage du poêle' : 'Extinction du poêle'
+                );
+                state.stove.statusCode = turnOn ? 1 : 7;
+                if (!turnOn && state.boost.active) {
+                    state.boost = { active: false, baseTargetTemp: null, boostTargetTemp: null, startedAt: null };
+                }
+                renderAll();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function adjustTargetTemp(delta) {
+            const current = state.stove.pendingTargetTemp ?? state.stove.targetTemp ?? 20.0;
+            const next = Math.min(30, Math.max(10, Math.round((current + delta) * 2) / 2));
+            state.stove.pendingTargetTemp = next;
+            renderAll();
+        }
+
+        async function applyTargetTemp() {
+            if (!isSessionReady() || state.stove.pendingTargetTemp === null) return;
+            const val = Number(state.stove.pendingTargetTemp.toFixed(1));
+            try {
+                await writeRealRegister({ temp_set: val }, `Consigne réglée sur ${val.toFixed(1)} °C`);
+                state.stove.targetTemp = val;
+                renderAll();
+                showToast(`Consigne envoyée : ${val.toFixed(1)} °C`, 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function setPowerLevel(level) {
+            if (!isSessionReady()) return;
+            try {
+                await writeRealRegister({ power: level }, `Puissance réglée sur P${level}`);
+                state.stove.powerLevel = level;
+                renderAll();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function setFanLevel(level) {
+            if (!isSessionReady()) return;
+            try {
+                await writeRealRegister({ fan: level }, `Ventilation réglée sur V${level}`);
+                state.stove.fanLevel = level;
+                renderAll();
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function activateBoostMode() {
+            if (!isSessionReady()) return;
+            const base = state.stove.targetTemp ?? state.stove.ambientTemp ?? 20.0;
+            const boostTarget = Number((base + 2.0).toFixed(1));
+            state.vacation.active = false;
+            state.boost = {
+                active: true,
+                baseTargetTemp: base,
+                boostTargetTemp: boostTarget,
+                startedAt: new Date().toLocaleTimeString('fr-FR')
+            };
+            savePersistedState();
+            renderAll();
+
+            try {
+                await writeRealRegister(
+                    { command: 'ON', status_managed: 1, temp_set: boostTarget, power: 5, fan: 5 },
+                    `Mode Boost activé : consigne ${boostTarget.toFixed(1)} °C, flammes P5, ventilation V5`
+                );
+                state.stove.statusCode = 3;
+                state.stove.targetTemp = boostTarget;
+                state.stove.pendingTargetTemp = boostTarget;
+                state.stove.powerLevel = 5;
+                state.stove.fanLevel = 5;
+                renderAll();
+                showToast(`Mode Boost lancé (cible ${boostTarget.toFixed(1)} °C)`, 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function cancelBoostMode() {
+            state.boost = { active: false, baseTargetTemp: null, boostTargetTemp: null, startedAt: null };
+            savePersistedState();
+            renderAll();
+            showToast('Mode Boost annulé', 'info');
+        }
+
+        async function evaluateBoostCompletion() {
+            if (!state.boost.active || !isSessionReady()) return;
+            const amb = state.stove.ambientTemp;
+            const target = state.boost.boostTargetTemp;
+            if (amb !== null && target !== null && amb >= target) {
+                state.boost.active = false;
+                savePersistedState();
+                try {
+                    await writeRealRegister(
+                        { command: 'OFF', status_managed: 0 },
+                        `Boost terminé (${amb.toFixed(1)}°C ≥ ${target.toFixed(1)}°C) : extinction automatique du poêle`
+                    );
+                    state.stove.statusCode = 7;
+                    renderAll();
+                } catch (err) {
+                    showToast(`Erreur extinction auto Boost : ${err.message}`, 'error');
+                }
+            }
+        }
+
+        async function toggleVacationMode() {
+            if (!isSessionReady()) return;
+            const elVacMax = document.getElementById('cfg-vacation-max-temp');
+            if (elVacMax) {
+                const parsedMax = parseFloat(elVacMax.value);
+                if (!Number.isNaN(parsedMax)) {
+                    state.vacation.maxTemp = Math.min(25, Math.max(5, Math.round(parsedMax * 2) / 2));
+                }
+            }
+            const maxTemp = Number(state.vacation.maxTemp ?? 14.0);
+
+            if (!state.vacation.active) {
+                if (state.boost.active) {
+                    state.boost = { active: false, baseTargetTemp: null, boostTargetTemp: null, startedAt: null };
+                }
+                state.vacation.active = true;
+                savePersistedState();
+                renderAll();
+
+                try {
+                    await writeRealRegister(
+                        { temp_set: maxTemp },
+                        `Mode Vacances activé : consigne limitée à ${maxTemp.toFixed(1)}°C (max à ne pas dépasser)`
+                    );
+                    state.stove.targetTemp = maxTemp;
+                    state.stove.pendingTargetTemp = maxTemp;
+                    await evaluateVacationMode();
+                    renderAll();
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            } else {
+                state.vacation.active = false;
+                savePersistedState();
+                renderAll();
+                showToast('Mode Vacances désactivé', 'info');
+                await evaluateScheduleEngine();
+            }
+        }
+
+        async function evaluateVacationMode() {
+            if (!state.vacation.active || !isSessionReady()) return;
+            const maxTemp = Number(state.vacation.maxTemp ?? 14.0);
+            const amb = state.stove.ambientTemp;
+            const isStoveOn = Boolean((STOVE_STATES[state.stove.statusCode] || { active: false }).active);
+
+            if (amb !== null && amb >= maxTemp && isStoveOn) {
+                try {
+                    await writeRealRegister(
+                        { command: 'OFF', status_managed: 0 },
+                        `Mode Vacances : température max (${maxTemp.toFixed(1)}°C) atteinte sur télécommande (${amb.toFixed(1)}°C) -> Extinction`
+                    );
+                    state.stove.statusCode = 7;
+                    renderAll();
+                } catch (err) {
+                    showToast(err.message, 'error');
+                }
+            }
+        }
+
+        function addScheduleSlot(event) {
+            event.preventDefault();
+            const day = document.getElementById('sched-day').value;
+            const start = document.getElementById('sched-start').value;
+            const end = document.getElementById('sched-end').value;
+            const temp = parseFloat(document.getElementById('sched-temp').value);
+            const profile = document.getElementById('sched-profile').value;
+
+            if (!start || !end || Number.isNaN(temp)) return;
+
+            state.schedules.push({
+                id: 's-' + Date.now(),
+                day,
+                start,
+                end,
+                temp: Math.min(30, Math.max(10, Math.round(temp * 2) / 2)),
+                profile: PROFILE_SPECS[profile] ? profile : 'normal',
+                enabled: true
+            });
+            savePersistedState();
+            renderSchedules();
+            showToast('Plage horaire ajoutée', 'success');
+        }
+
+        function toggleScheduleSlot(id) {
+            const slot = state.schedules.find((s) => s.id === id);
+            if (!slot) return;
+            slot.enabled = !slot.enabled;
+            savePersistedState();
+            renderSchedules();
+        }
+
+        function deleteScheduleSlot(id) {
+            state.schedules = state.schedules.filter((s) => s.id !== id);
+            savePersistedState();
+            renderSchedules();
+            showToast('Plage supprimée', 'info');
+        }
+
+        function formatDayLabel(day) {
+            const map = {
+                all: 'Tous les jours',
+                weekday: 'Semaine (Lun-Ven)',
+                weekend: 'Week-end (Sam-Dim)',
+                0: 'Dimanche',
+                1: 'Lundi',
+                2: 'Mardi',
+                3: 'Mercredi',
+                4: 'Jeudi',
+                5: 'Vendredi',
+                6: 'Samedi'
+            };
+            return map[day] || day;
+        }
+
+        function isSlotMatchingNow(slot, now) {
+            if (!slot.enabled) return false;
+            const dow = now.getDay();
+            if (slot.day === 'weekday' && (dow === 0 || dow === 6)) return false;
+            if (slot.day === 'weekend' && dow !== 0 && dow !== 6) return false;
+            if (!['all', 'weekday', 'weekend'].includes(slot.day) && Number(slot.day) !== dow) return false;
+
+            const curMin = now.getHours() * 60 + now.getMinutes();
+            const [sh, sm] = slot.start.split(':').map(Number);
+            const [eh, em] = slot.end.split(':').map(Number);
+            const startMin = sh * 60 + sm;
+            const endMin = eh * 60 + em;
+
+            if (startMin <= endMin) {
+                return curMin >= startMin && curMin <= endMin;
+            }
+            return curMin >= startMin || curMin <= endMin;
+        }
+
+        async function evaluateScheduleEngine() {
+            const statusEl = document.getElementById('schedule-engine-status');
+            const bannerEl = document.getElementById('active-schedule-banner');
+
+            if (state.vacation.active) {
+                const maxTemp = Number(state.vacation.maxTemp ?? 14.0);
+                if (bannerEl) {
+                    bannerEl.textContent = `Mode Vacances prioritaire (max ${maxTemp.toFixed(1)}°C)`;
+                    bannerEl.className = 'px-3 py-1.5 rounded-xl border text-xs font-bold bg-sky-500/15 text-sky-300 border-sky-500/30';
+                }
+                if (statusEl) {
+                    statusEl.textContent = `Mode Vacances actif : plages horaires suspendues, limite à ne pas dépasser : ${maxTemp.toFixed(1)}°C.`;
+                }
+                return;
+            }
+
+            if (state.boost.active) {
+                if (bannerEl) {
+                    bannerEl.textContent = 'Mode Boost prioritaire';
+                    bannerEl.className = 'px-3 py-1.5 rounded-xl border text-xs font-bold bg-orange-500/15 text-orange-300 border-orange-500/30';
+                }
+                return;
+            }
+
+            const now = new Date();
+            const activeSlot = state.schedules.find((s) => isSlotMatchingNow(s, now));
+            if (!activeSlot) {
+                if (bannerEl) {
+                    bannerEl.textContent = 'Aucune plage active';
+                    bannerEl.className = 'px-3 py-1.5 rounded-xl border text-xs font-bold bg-slate-900 text-slate-300 border-slate-700';
+                }
+                return;
+            }
+
+            const spec = PROFILE_SPECS[activeSlot.profile] || PROFILE_SPECS.normal;
+            if (bannerEl) {
+                bannerEl.textContent = `Actif : ${spec.label} (${activeSlot.temp.toFixed(1)}°C · ${activeSlot.start}-${activeSlot.end})`;
+                bannerEl.className = `px-3 py-1.5 rounded-xl border text-xs font-bold ${spec.badgeClass}`;
+            }
+
+            if (!isSessionReady() || state.stove.ambientTemp === null) return;
+            const amb = state.stove.ambientTemp;
+            const isStoveOn = Boolean((STOVE_STATES[state.stove.statusCode] || { active: false }).active);
+
+            if (activeSlot.profile === 'eco') {
+                const onThreshold = activeSlot.temp - 1.0;
+                if (!isStoveOn && amb <= onThreshold) {
+                    await writeRealRegister({ command: 'ON', status_managed: 1, temp_set: activeSlot.temp }, `Profil Éco : allumage (${amb.toFixed(1)}°C ≤ ${onThreshold.toFixed(1)}°C)`);
+                } else if (isStoveOn && amb >= activeSlot.temp) {
+                    await writeRealRegister({ command: 'OFF', status_managed: 0 }, `Profil Éco : consigne ${activeSlot.temp.toFixed(1)}°C atteinte -> Extinction`);
+                }
+            } else if (activeSlot.profile === 'normal') {
+                const onThreshold = activeSlot.temp - 0.1;
+                const offThreshold = activeSlot.temp + 0.5;
+                if (!isStoveOn && amb <= onThreshold) {
+                    await writeRealRegister({ command: 'ON', status_managed: 1, temp_set: offThreshold }, `Profil Normal : allumage (${amb.toFixed(1)}°C ≤ ${onThreshold.toFixed(1)}°C), cible ${offThreshold.toFixed(1)}°C`);
+                } else if (isStoveOn && amb >= offThreshold) {
+                    await writeRealRegister({ command: 'OFF', status_managed: 0 }, `Profil Normal : ${offThreshold.toFixed(1)}°C atteint -> Extinction`);
+                }
+            } else if (activeSlot.profile === 'comfort') {
+                const onThreshold = activeSlot.temp + 0.4;
+                const offThreshold = activeSlot.temp + 1.5;
+                if (!isStoveOn && amb < onThreshold) {
+                    await writeRealRegister({ command: 'ON', status_managed: 1, temp_set: offThreshold }, `Profil Confort : allumage (${amb.toFixed(1)}°C < ${onThreshold.toFixed(1)}°C), cible ${offThreshold.toFixed(1)}°C`);
+                } else if (isStoveOn && amb >= offThreshold) {
+                    await writeRealRegister({ command: 'OFF', status_managed: 0 }, `Profil Confort : ${offThreshold.toFixed(1)}°C atteint -> Extinction`);
+                }
+            }
+        }
+
+        function renderSchedules() {
+            const list = document.getElementById('schedule-list');
+            if (!list) return;
+            if (!state.schedules.length) {
+                list.innerHTML = '<p class="text-xs text-slate-400">Aucune plage horaire enregistrée.</p>';
+                return;
+            }
+            list.innerHTML = state.schedules.map((s) => {
+                const spec = PROFILE_SPECS[s.profile] || PROFILE_SPECS.normal;
+                return `
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/85 border border-slate-800 ${s.enabled ? '' : 'opacity-55'}">
+                        <div class="space-y-1">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="text-xs font-extrabold text-white">${escapeHtml(formatDayLabel(s.day))}</span>
+                                <span class="text-xs font-bold text-orange-300">${escapeHtml(s.start)} – ${escapeHtml(s.end)}</span>
+                                <span class="px-2 py-0.5 rounded-lg text-[11px] font-bold border ${spec.badgeClass}">${spec.label}</span>
+                                <span class="text-xs font-bold text-slate-200">Consigne ${Number(s.temp).toFixed(1)} °C</span>
+                            </div>
+                            <p class="text-[11px] text-slate-400">${spec.summary}</p>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            <button type="button" onclick="toggleScheduleSlot('${s.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 transition">
+                                ${s.enabled ? 'Activée' : 'Désactivée'}
+                            </button>
+                            <button type="button" onclick="deleteScheduleSlot('${s.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition">
+                                Supprimer
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderAll() {
+            const ready = isSessionReady();
+            syncEepromDay();
+
+            safeSetText('eeprom-badge', `EEPROM : ${state.eeprom.count} / ${EEPROM_DAILY_LIMIT} aujourd'hui`);
+            safeToggleHidden('disconnected-banner', ready);
+
+            const btnRefresh = document.getElementById('btn-refresh-now');
+            if (btnRefresh) btnRefresh.disabled = !ready;
+
+            if (ready) {
+                safeSetClass('connection-pill', 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30');
+                safeSetText('connection-pill', 'Connecté');
+                safeSetText('stove-subtitle', `${state.auth.deviceName} · ID ${state.auth.deviceId}`);
+            } else {
+                safeSetClass('connection-pill', 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30');
+                safeSetText('connection-pill', 'Déconnecté');
+                safeSetText('stove-subtitle', 'Connectez votre compte Jolly Mec Wi-Fi pour piloter le poêle en direct');
+            }
+
+            const statusInfo = STOVE_STATES[state.stove.statusCode] || { label: '--', active: false };
+            safeSetText('stove-status-text', ready ? statusInfo.label : '--');
+            safeSetText('btn-power-label', statusInfo.active ? 'Éteindre le poêle' : 'Allumer le poêle');
+
+            const btnPower = document.getElementById('btn-power-toggle');
+            const btnBoost = document.getElementById('btn-boost-toggle');
+            const btnVacation = document.getElementById('btn-vacation-toggle');
+            if (btnPower) btnPower.disabled = !ready;
+            if (btnBoost) btnBoost.disabled = !ready;
+            if (btnVacation) btnVacation.disabled = !ready;
+
+            if (state.boost.active && ready) {
+                safeSetClass('btn-boost-toggle', 'w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-orange-500 text-slate-950 border border-orange-300 shadow-lg shadow-orange-500/25 transition');
+                safeSetText('btn-boost-label', `Boost actif (${Number(state.boost.boostTargetTemp).toFixed(1)}°C)`);
+                safeToggleHidden('boost-active-banner', false);
+                const ambTxt = state.stove.ambientTemp !== null ? `${state.stove.ambientTemp.toFixed(1)} °C` : '-- °C';
+                safeSetText('boost-status-detail', `Cible : ${Number(state.boost.boostTargetTemp).toFixed(1)} °C · Télécommande : ${ambTxt} · Flammes P5 / Vent V5`);
+            } else {
+                safeSetClass('btn-boost-toggle', 'w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-200 border border-amber-500/40 disabled:opacity-40 disabled:pointer-events-none transition');
+                safeSetText('btn-boost-label', 'Boost +2°C & Stop');
+                safeToggleHidden('boost-active-banner', true);
+            }
+
+            const vacMax = Number(state.vacation.maxTemp ?? 14.0);
+            if (state.vacation.active && ready) {
+                safeSetClass('btn-vacation-toggle', 'w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-sky-500 text-slate-950 border border-sky-300 shadow-lg shadow-sky-500/25 transition');
+                safeSetText('btn-vacation-label', `Vacances (${vacMax.toFixed(1)}°C max)`);
+                safeToggleHidden('vacation-active-banner', false);
+                const ambTxt = state.stove.ambientTemp !== null ? `${state.stove.ambientTemp.toFixed(1)} °C` : '-- °C';
+                safeSetText('vacation-status-detail', `Température max à ne pas dépasser : ${vacMax.toFixed(1)} °C · Télécommande : ${ambTxt} · Plages horaires suspendues`);
+            } else {
+                safeSetClass('btn-vacation-toggle', 'w-full sm:w-auto px-5 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2.5 bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 border border-sky-500/40 disabled:opacity-40 disabled:pointer-events-none transition');
+                safeSetText('btn-vacation-label', 'Mode Vacances');
+                safeToggleHidden('vacation-active-banner', true);
+            }
+
+            safeSetText('kpi-ambient-temp', ready && state.stove.ambientTemp !== null ? `${state.stove.ambientTemp.toFixed(1)} °C` : '-- °C');
+            safeSetText('kpi-target-temp', ready && state.stove.targetTemp !== null ? `${state.stove.targetTemp.toFixed(1)} °C` : '-- °C');
+            safeSetText('kpi-exhaust-temp', ready && state.stove.exhaustTemp !== null ? `${state.stove.exhaustTemp} °C` : '-- °C');
+
+            const shownTemp = state.stove.pendingTargetTemp ?? state.stove.targetTemp;
+            safeSetText('target-temp-display', ready && shownTemp !== null ? shownTemp.toFixed(1) : '--.-');
+
+            const hasPending = ready && state.stove.pendingTargetTemp !== null && state.stove.targetTemp !== null && state.stove.pendingTargetTemp !== state.stove.targetTemp;
+            safeToggleHidden('pending-temp-badge', !hasPending);
+
+            ['btn-temp-minus', 'btn-temp-plus', 'btn-apply-temp'].forEach((id) => {
+                const el = document.getElementById(id);
+                if (el) el.disabled = !ready;
+            });
+
+            safeSetText('power-level-badge', ready && state.stove.powerLevel ? `P${state.stove.powerLevel}` : '--');
+            document.querySelectorAll('.power-btn').forEach((btn) => {
+                const lvl = Number(btn.getAttribute('data-power'));
+                const active = ready && state.stove.powerLevel === lvl;
+                btn.disabled = !ready;
+                btn.className = (active
+                    ? 'power-btn py-2.5 rounded-xl text-xs font-extrabold bg-orange-500 text-slate-950 border border-orange-300 transition'
+                    : 'power-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition');
+            });
+
+            safeSetText('fan-level-badge', ready && state.stove.fanLevel ? `V${state.stove.fanLevel}` : '--');
+            document.querySelectorAll('.fan-btn').forEach((btn) => {
+                const lvl = Number(btn.getAttribute('data-fan'));
+                const active = ready && state.stove.fanLevel === lvl;
+                btn.disabled = !ready;
+                btn.className = (active
+                    ? 'fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-sky-500 text-slate-950 border border-sky-300 transition'
+                    : 'fan-btn py-2.5 rounded-xl text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 disabled:opacity-40 disabled:pointer-events-none transition');
+            });
+
+            renderSchedules();
+            renderAlerts();
+            renderLogs();
+        }
+
+        function initApp() {
+            loadPersistedState();
+            populateConfigForm();
+            switchTab(state.activeTab || 'control');
+            renderAll();
+
+            if (state.config.email && state.config.password) {
+                authenticateRealAguaIot()
+                    .then(() => fetchRealDeviceStatus())
+                    .then(() => {
+                        startPollingLoop();
+                        renderAll();
+                    })
+                    .catch((err) => {
+                        logApi('WARN', 'Reconnexion automatique impossible : ' + err.message);
+                        renderAll();
+                    });
+            }
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    </script>
+</body>
+</html>
