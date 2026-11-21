@@ -66,6 +66,68 @@
         </div>
     </div>
 
+    <!-- Widget Install Modal -->
+    <div id="widget-modal" class="hidden fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="glass-card max-w-xl w-full max-h-[88vh] overflow-y-auto p-6 space-y-5 border border-slate-700/80">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-500/15 text-orange-300 border border-orange-500/30">
+                        Installation simple
+                    </span>
+                    <h3 class="text-lg font-extrabold text-white mt-1.5">Widget Poêle &amp; Météo (Apple &amp; Android)</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Tout est déjà pré-rempli : vous n'avez qu'à copier-coller les liens et mettre votre e-mail et mot de passe.</p>
+                </div>
+                <button type="button" onclick="closeWidgetModal()" aria-label="Fermer" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center text-sm font-bold shrink-0 transition">
+                    ✕
+                </button>
+            </div>
+
+            <!-- Bloc 1: Apple Raccourcis -->
+            <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                    <h4 class="text-sm font-bold text-orange-300">Apple (iPhone / iPad) · App « Raccourcis »</h4>
+                    <span class="text-[11px] font-semibold text-emerald-300">APIs déjà remplies</span>
+                </div>
+                <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                    <li>Ouvrez l'app <strong>Raccourcis</strong> et faites <strong>+</strong> (nommez-le <strong>État du poêle</strong>).</li>
+                    <li>Ajoutez <strong>Obtenir le contenu de l'URL</strong> avec la météo :
+                        <div class="mt-1 flex items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800">
+                            <code class="text-[11px] text-amber-300 break-all flex-1">https://api.open-meteo.com/v1/forecast?latitude=47.6619&amp;longitude=-2.4526&amp;current_weather=true</code>
+                            <button type="button" onclick="copyText('https://api.open-meteo.com/v1/forecast?latitude=47.6619&longitude=-2.4526&current_weather=true', 'URL météo copiée')" class="px-2 py-1 rounded bg-slate-800 text-[10px] font-bold text-white shrink-0">Copier</button>
+                        </div>
+                    </li>
+                    <li>Ajoutez <strong>Obtenir le contenu de l'URL</strong> en <strong>POST</strong> vers :
+                        <div class="mt-1 flex items-center gap-2 bg-slate-950 p-2 rounded-lg border border-slate-800">
+                            <code class="text-[11px] text-amber-300 break-all flex-1">https://jollymec.agua-iot.com/userLogin</code>
+                            <button type="button" onclick="copyText('https://jollymec.agua-iot.com/userLogin', 'URL connexion copiée')" class="px-2 py-1 rounded bg-slate-800 text-[10px] font-bold text-white shrink-0">Copier</button>
+                        </div>
+                        <p class="text-[11px] text-slate-400 mt-1">JSON : <code class="text-slate-200">customer_code</code> = <code class="text-emerald-300">526973</code>, <code class="text-slate-200">uuid</code> = <code class="text-emerald-300">widget-maison</code>, plus votre <code class="text-slate-200">email</code> et <code class="text-slate-200">password</code>.</p>
+                    </li>
+                    <li>Lisez <code class="text-amber-300">token</code>, appelez <code class="text-amber-300">https://jollymec.agua-iot.com/deviceList</code> (<code class="text-amber-300">devices.1.id</code>), puis <code class="text-amber-300">https://jollymec.agua-iot.com/deviceGetBufferReading</code> pour lire <code class="text-amber-300">buffer.t1</code> (maison) et <code class="text-amber-300">buffer.status</code> (1 à 5 = Allumé, sinon Éteint).</li>
+                    <li>Sur l'écran d'accueil : appui long → <strong>+</strong> → widget <strong>Raccourcis</strong> → choisissez <strong>État du poêle</strong>.</li>
+                </ol>
+            </div>
+
+            <!-- Bloc 2: Android -->
+            <div class="rounded-2xl bg-slate-900/90 border border-slate-800 p-4 space-y-3">
+                <div class="flex items-center justify-between gap-2">
+                    <h4 class="text-sm font-bold text-emerald-300">Android · Écran d'accueil &amp; Widget</h4>
+                    <span class="text-[11px] font-semibold text-slate-400">Chrome / Widget</span>
+                </div>
+                <ol class="list-decimal list-inside space-y-1.5 text-xs text-slate-300 leading-relaxed">
+                    <li><strong>Raccourci direct sur l'écran d'accueil :</strong> ouvrez cette page dans <strong>Chrome</strong> sur Android → menu <strong>⋮</strong> → <strong>Ajouter à l'écran d'accueil</strong>. Vous avez l'icône et les températures en 1 clic.</li>
+                    <li><strong>Widget sur l'écran d'accueil Android :</strong> faites un appui long sur un espace vide de votre écran d'accueil → appuyez sur <strong>Widgets</strong> → choisissez un widget <strong>Chrome</strong> ou <strong>Météo</strong> (ou <strong>KWGT</strong> si vous voulez afficher la température maison + extérieure en direct).</li>
+                </ol>
+            </div>
+
+            <div class="flex items-center justify-end pt-1">
+                <button type="button" onclick="closeWidgetModal()" class="px-4 py-2.5 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-slate-950 transition">
+                    Fermer
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="max-w-5xl mx-auto px-4 py-6 sm:py-8 space-y-6">
         <!-- Top Header -->
         <header class="glass-card p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -102,6 +164,31 @@
             </div>
         </header>
 
+        <!-- Dismissible Widget Promo Banner -->
+        <div id="widget-promo-banner" class="glass-card px-4 py-3 border border-orange-500/30 bg-gradient-to-r from-orange-500/10 via-slate-900/90 to-emerald-500/10 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-base shrink-0">
+                    📱
+                </div>
+                <div class="min-w-0">
+                    <p class="text-xs sm:text-sm font-bold text-white truncate">
+                        Ajoutez le widget Poêle &amp; Météo sur Apple ou Android
+                    </p>
+                    <p class="text-[11px] text-slate-300 truncate">
+                        Température maison, météo extérieure et état Allumé/Éteint en un coup d'œil.
+                    </p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <button type="button" onclick="openWidgetModal()" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-500 hover:bg-orange-400 text-slate-950 transition">
+                    Comment l'installer
+                </button>
+                <button type="button" onclick="dismissWidgetBanner()" title="Ne plus afficher" aria-label="Fermer la bannière widget" class="w-8 h-8 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-xs font-bold transition">
+                    ✕
+                </button>
+            </div>
+        </div>
+
         <!-- Navigation Tabs -->
         <nav class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" aria-label="Navigation principale">
             <button id="tab-control" type="button" onclick="switchTab('control')" class="tab-btn-active py-3 px-4 rounded-2xl text-xs sm:text-sm transition text-center">
@@ -135,7 +222,6 @@
 
         <!-- TAB 1: CONTROL -->
         <section id="panel-control" class="space-y-6">
-            <!-- Not connected notice -->
             <div id="disconnected-banner" class="glass-card p-5 border border-amber-500/30 bg-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div class="space-y-1">
                     <p class="text-sm font-bold text-amber-300">Session API Agua IOT non active</p>
@@ -146,7 +232,6 @@
                 </button>
             </div>
 
-            <!-- Main Power, Boost & Vacation Card -->
             <div class="glass-card p-5 sm:p-6 space-y-5">
                 <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                     <div>
@@ -181,7 +266,6 @@
                     </div>
                 </div>
 
-                <!-- Active Boost Banner -->
                 <div id="boost-active-banner" class="hidden rounded-2xl bg-orange-500/15 border border-orange-400/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="space-y-0.5">
                         <p class="text-xs font-extrabold uppercase tracking-wider text-orange-300">Mode Boost actif (+2,0 °C)</p>
@@ -192,7 +276,6 @@
                     </button>
                 </div>
 
-                <!-- Active Vacation Banner -->
                 <div id="vacation-active-banner" class="hidden rounded-2xl bg-sky-500/15 border border-sky-400/40 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="space-y-0.5">
                         <p class="text-xs font-extrabold uppercase tracking-wider text-sky-300">Mode Vacances actif (Absence)</p>
@@ -203,7 +286,6 @@
                     </button>
                 </div>
 
-                <!-- Telemetry KPIs -->
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
                     <div class="rounded-2xl bg-slate-900/85 border border-slate-800 p-4">
                         <p class="text-xs text-slate-400 font-medium">Température Télécommande</p>
@@ -220,9 +302,7 @@
                 </div>
             </div>
 
-            <!-- Temperature, Power & Fan Controls -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- Target Temperature Card -->
                 <div class="glass-card p-5 sm:p-6 space-y-4">
                     <div class="flex items-center justify-between">
                         <div>
@@ -252,7 +332,6 @@
                     </button>
                 </div>
 
-                <!-- Power & Fan Levels Card -->
                 <div class="glass-card p-5 sm:p-6 space-y-5">
                     <div class="space-y-2.5">
                         <div class="flex items-center justify-between">
@@ -300,7 +379,6 @@
                     </span>
                 </div>
 
-                <!-- Add Schedule Form -->
                 <form id="schedule-form" onsubmit="addScheduleSlot(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 pt-2">
                     <div>
                         <label class="block text-[11px] font-semibold text-slate-400 mb-1">Jour</label>
@@ -345,7 +423,6 @@
                 </form>
             </div>
 
-            <!-- Schedule List -->
             <div class="glass-card p-5 sm:p-6 space-y-3">
                 <h3 class="text-sm font-bold text-white">Créneaux programmés</h3>
                 <div id="schedule-list" class="space-y-2.5"></div>
@@ -445,11 +522,13 @@
                         <button type="button" onclick="sendTestNotification()" class="px-4 py-3 rounded-2xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition">
                             Tester une notification / alerte
                         </button>
+                        <button type="button" onclick="openWidgetModal()" class="px-4 py-3 rounded-2xl text-xs font-bold bg-sky-500/15 hover:bg-sky-500/25 text-sky-200 border border-sky-500/40 transition">
+                            📱 Guide Widget Apple / Android
+                        </button>
                     </div>
                 </form>
             </div>
 
-            <!-- Alerts History -->
             <div class="glass-card p-5 sm:p-6 space-y-3">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-bold text-white">Historique des alertes &amp; notifications</h3>
@@ -528,7 +607,6 @@
                 </form>
             </div>
 
-            <!-- API Log Console -->
             <div class="glass-card p-5 sm:p-6 space-y-3">
                 <div class="flex items-center justify-between">
                     <h3 class="text-sm font-bold text-white">Journal d'activité API</h3>
@@ -545,6 +623,7 @@
 
     <script>
         const STORAGE_KEY = 'jolly_mec_agua_iot_v1';
+        const WIDGET_BANNER_DISMISSED_KEY = 'jolly_mec_widget_banner_dismissed';
         const EEPROM_DAILY_LIMIT = 20;
 
         const AGUA_DEFAULTS = {
@@ -652,6 +731,42 @@
 
         let pollingTimer = null;
         let confirmCallback = null;
+
+        function initWidgetBanner() {
+            try {
+                const dismissed = localStorage.getItem(WIDGET_BANNER_DISMISSED_KEY) === '1';
+                safeToggleHidden('widget-promo-banner', dismissed);
+            } catch (_) {
+                safeToggleHidden('widget-promo-banner', false);
+            }
+        }
+
+        function dismissWidgetBanner() {
+            safeToggleHidden('widget-promo-banner', true);
+            try {
+                localStorage.setItem(WIDGET_BANNER_DISMISSED_KEY, '1');
+            } catch (_) {
+                // Ignorer si stockage indisponible
+            }
+        }
+
+        function openWidgetModal() {
+            safeToggleHidden('widget-modal', false);
+        }
+
+        function closeWidgetModal() {
+            safeToggleHidden('widget-modal', true);
+        }
+
+        function copyText(textToCopy, toastMessage = 'Copié') {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy)
+                    .then(() => showToast(toastMessage, 'success'))
+                    .catch(() => showToast('Copie automatique bloquée par le navigateur', 'warn'));
+            } else {
+                showToast('Presse-papiers indisponible sur ce navigateur', 'warn');
+            }
+        }
 
         function ensureClientUUID() {
             if (!state.auth.uuid) {
@@ -911,7 +1026,6 @@
                     targetUrl = `${targetUrl}${sep}text=${encodedMsg}${phone ? `&phone=${encodedPhone}` : ''}`;
                 }
 
-                // Appel GET compatible CallMeBot & webhooks HTTP standards
                 await fetch(targetUrl, {
                     method: 'GET',
                     mode: 'no-cors'
@@ -1842,6 +1956,7 @@
         }
 
         function initApp() {
+            initWidgetBanner();
             loadPersistedState();
             populateConfigForm();
             switchTab(state.activeTab || 'control');
